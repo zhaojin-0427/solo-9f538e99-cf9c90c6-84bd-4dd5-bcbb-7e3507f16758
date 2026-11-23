@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block body %}
+
+{# ---------------- 配置区 ---------------- #}
+<section class="card">
+  <h2>1. 建立核查任务</h2>
+  <p class="hint">粘贴或上传配置 JSON。可与旧答卷合并为一个文件，结构见
+    <code>{"config": {...}, "archive": {...}}</code>；也可之后单独上传答卷。</p>
+  <form method="post" action="{{ url_for('setup') }}" enctype="multipart/form-data">
+    <textarea name="config_text" rows="14" placeholder='{
+  "items": ["S1", "S2", "S3"],
+  "labels": {"S1": "夜间佩戴头盔", "S2": "配有车前灯", "S3": "单次夜骑超过30分钟"},
+  "followups": [
+    {"qid": "Q1", "condition": "S1 AND NOT S2", "shown": true},
+    {"qid": "Q2", "condition": "S3 OR S1", "shown": false}
+  ],
+  "inclusion": "S1 AND (S2 OR S3)"
+}'></textarea>
+    <div class="row">
+      <input type="file" name="config_file" accept=".json,application/json">
+      <button type="submit">建立任务</button>
+      <button type="submit" formaction="{{ url_for('reset') }}" formmethod="post" class="ghost">重置全部</button>
+    </div>
+  </form>
+</section>
+
+{% if cfg %}
+{# ---------------- 答卷上传区 ---------------- #}
+<section class="card">
+  <h2>2. 上传旧答卷</h2>
+  <p class="hint">已答筛查项 + 当时展示/跳过的全部追问题号。跳题记录会成为补全答案必须满足的约束。</p>
+  <form method="post" action="{{ url_for('upload_archive') }}" enctype="multipart/form-data">
+    <textarea name="archive_text" rows="10" placeholder='{
+  "answers": {"S1": true},
+  "followups": [
+    {"qid": "Q1", "shown": true},
+    {"qid": "Q2", "shown": false}
+  ]
+}'></textarea>
+    <div class="row">
+      <input type="file" name="archive_file" accept=".json,application/json">
+      <button type="submit">载入答卷</button>
+    </div>
+  </form>
+</section>
+
+{# ---------------- 判定结果区 ---------------- #}
+<section class="card result-card verdict-{{ result.verdict }}">
+  <h2>3. 判定结果</h2>
+
+  {% if result.verdict == 'conflict' %}
+    <div class="verdict big conflict">旧档矛盾：不存在与展示/跳过记录相符的补全</div>
+    <p>以下约束构成一个最小矛盾核（同时满足它们没有任何答案组合），请优先电话核对：</p>
+    <ul class="conflict-list">
+      {% for c in result.conflicting %}<li>{{ c.description }}</li>{% endfor %}
+    </ul>
+
+  {% elif result.verdict == 'include' %}
+    <div class="verdict big include">可直接判定：纳入新版夜骑分析</div>
+    <p>全部 {{ result.feasible_count }} 种与旧档相符的补全，纳入条件结论一致。</p>
+
+  {% elif result.verdict == 'exclude' %}
+    <div class="verdict big exclude">可直接判定：不纳入新版夜骑分析</div>
+    <p>全部 {{ result.feasible_count }} 种与旧档相符的补全，纳入条件结论一致。</p>
+
+  {% else %}
+    <div class="verdict big uncertain">结论有分歧，需要电话补问</div>
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="stat-num">{{ result.worst_remaining }}</div>
+        <div class="stat-label">从当前起最坏还要问几题</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">{{ result.feasible_count }}</div>
+        <div class="stat-label">与旧档相符的补全数</div>
+      </div>
+    </div>
+    <p>推荐优先补问
+      <strong class="recommend">{{ cfg.labels.get(result.recommended, result.recommended) }}
+      （{{ result.recommended }}）</strong>——该题使最坏剩余题数最少。</p>
+  {% endif %}
+</section>
+
+{# ---------------- 上次被拒绝的提交 ---------------- #}
+{% if last_submission %}
+<section class="card conflict-detail">
+  <h3>上次提交因冲突被拒绝（页面仍显示提交前结果）</h3>
+  <p>尝试填写：<strong>{{ cfg.labels.get(last_submission.item, last_submission.item) }}
+    （{{ last_submission.item }}）= {{ last_submission.value | yn }}</strong></p>
+  <p>与之冲突的约束：</p>
+  <ul class="conflict-list">
+    {% for d in last_submission.conflicts %}<li>{{ d }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{# ---------------- 筛查项与补问区 ---------------- #}
+<section class="card">
+  <h2>4. 筛查项答案与补问</h2>
+  {% if result.implied %}
+  <p class="hint">以下未答项已被旧档约束唯一确定（无需再问）：
+    {% for name, val in result.implied.items() %}
+      <span class="implied">{{ cfg.labels.get(name, name) }} = {{ val | yn }}</span>{% if not loop.last %}；{% endif %}
+    {% endfor %}
+  </p>
+  {% endif %}
+  <table>
+    <thead><tr><th>变量</th><th>筛查项</th><th>当前答案</th><th>最坏题数（若选问此项）</th><th>操作</th></tr></thead>
+    <tbody>
+    {% for name in cfg.items %}
+      <tr {% if name == result.recommended %}class="recommended-row"{% endif %}>
+        <td><code>{{ name }}</code></td>
+        <td>{{ cfg.labels.get(name, name) }}</td>
+        <td>
+          {% if name in answers %}<span class="tag answered">{{ answers[name] | yn }}</span>
+          {% elif name in result.implied %}<span class="tag implied">隐含 {{ result.implied[name] | yn }}</span>
+          {% else %}<span class="tag unknown">未答</span>{% endif %}
+        </td>
+        <td>
+          {% set cand = result.candidates | selectattr(0, 'equalto', name) | list %}
+          {% if cand %}{{ cand[0][1] }} 题{% else %}—{% endif %}
+        </td>
+        <td>
+          {% if name in answers %}已确认
+          {% elif result.verdict != 'conflict' %}
+          <form method="post" action="{{ url_for('submit_answer') }}" class="inline">
+            <input type="hidden" name="item" value="{{ name }}">
+            <button name="value" value="true" class="yes">答“是”</button>
+            <button name="value" value="false" class="no">答“否”</button>
+          </form>
+          {% else %}矛盾状态{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <form method="post" action="{{ url_for('reset_answers') }}" class="mt">
+    <button class="ghost" type="submit">清空全部答案（重新补问）</button>
+  </form>
+</section>
+
+{# ---------------- 约束回显区 ---------------- #}
+<section class="card">
+  <h2>5. 当前条件与跳题约束</h2>
+  <p><strong>新版纳入条件：</strong><code>{{ cfg.inclusion_text }}</code></p>
+  <table>
+    <thead><tr><th>追问题号</th><th>旧版展示条件</th><th>旧答卷记录</th><th>对补全的要求</th></tr></thead>
+    <tbody>
+    {% for f in cfg.followups %}
+      <tr>
+        <td><code>{{ f.qid }}</code></td>
+        <td><code>{{ f.condition_display }}</code></td>
+        <td><span class="tag {{ 'answered' if f.shown else 'unknown' }}">{{ '实际展示' if f.shown else '跳过' }}</span></td>
+        <td>条件须为 <strong>{{ f.shown | yn }}</strong></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{% endblock %}

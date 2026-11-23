@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}旧答卷夜骑纳入核查{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+  <h1>旧答卷夜骑纳入核查</h1>
+  <p class="sub">交通调查 · 旧版答卷可补全性与新版纳入判定</p>
+</header>
+<main>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <section class="flashes">
+        {% for category, msg in messages %}
+          <div class="flash {{ category }}">{{ msg }}</div>
+        {% endfor %}
+      </section>
+    {% endif %}
+  {% endwith %}
+  {% block body %}{% endblock %}
+</main>
+<footer>条件支持 AND/OR/NOT（亦可用 与/或/非、&amp;&amp;/||/!），筛查项至多 12 个。</footer>
+</body>
+</html>

@@ -1,0 +1,10 @@
+services:
+  nightride-check:
+    build: .
+    image: nightride-check:latest
+    ports:
+      - "8000:8000"
+    environment:
+      # 生产部署请改为固定随机值，例如：openssl rand -hex 32
+      SECRET_KEY: "${SECRET_KEY:-dev-only-change-me-in-production}"
+    restart: unless-stopped

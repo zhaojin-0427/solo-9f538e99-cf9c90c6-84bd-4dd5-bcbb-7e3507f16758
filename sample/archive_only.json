@@ -1,0 +1,8 @@
+{
+  "answers": {"S1": true, "S4": true},
+  "followups": [
+    {"qid": "Q1", "shown": true},
+    {"qid": "Q2", "shown": true},
+    {"qid": "Q3", "shown": false}
+  ]
+}
