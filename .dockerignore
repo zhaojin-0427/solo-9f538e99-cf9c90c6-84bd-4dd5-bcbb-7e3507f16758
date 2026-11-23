@@ -7,3 +7,7 @@ venv/
 tests/
 scripts/
 *.md
+data/
+*.db
+*.db-wal
+*.db-shm

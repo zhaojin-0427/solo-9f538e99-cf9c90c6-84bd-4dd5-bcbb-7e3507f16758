@@ -7,4 +7,11 @@ services:
     environment:
       # 生产部署请改为固定随机值，例如：openssl rand -hex 32
       SECRET_KEY: "${SECRET_KEY:-dev-only-change-me-in-production}"
+      TRIAL_DB_PATH: "/data/trials.db"
+    volumes:
+      # 试跑记录与异常报告落在卷里，容器重建后仍可查询
+      - trial-data:/data
     restart: unless-stopped
+
+volumes:
+  trial-data:

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}试跑 {{ record.trial_id }}{% endblock %}
+{% block heading %}试跑记录 {{ record.trial_id }}{% endblock %}
+{% block subheading %}版号 {{ record.version }} · 终端 {{ record.terminal }}{% endblock %}
+{% block body %}
+
+<section class="card">
+  <h2>按试跑号更正</h2>
+  <p class="hint">保存后会用新内容替换此试跑号，只重算旧记录与新记录涉及的答案组；
+    若原异常组的证据因此失效，会自动换一对证据，找不到就撤下该异常。
+    保存失败时原记录与原异常报告保持不变。</p>
+  <form method="post" action="{{ url_for('trials.correct_record', trial_id=record.trial_id) }}">
+    <textarea name="record_json" rows="18" class="mono-area">{{ record_json }}</textarea>
+    <div class="row">
+      <button type="submit">保存更正</button>
+      <a class="btn-link" href="{{ url_for('trials.record_detail', trial_id=record.trial_id) }}">放弃修改</a>
+      <a class="btn-link" href="{{ url_for('trials.index') }}">返回异常列表</a>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <h2>当前入库内容</h2>
+  <table>
+    <tbody>
+      <tr><th>版号</th><td><code>{{ record.version }}</code></td></tr>
+      <tr><th>终端号</th><td><code>{{ record.terminal }}</code></td></tr>
+      <tr><th>内容指纹</th><td class="mono">{{ record.content_hash[:16] }}…</td></tr>
+      <tr><th>首次入库</th><td>{{ record.created_at }}</td></tr>
+      <tr><th>最近更正</th><td>{{ record.updated_at }}</td></tr>
+    </tbody>
+  </table>
+  <h3 class="mt">完整筛查答案</h3>
+  <table>
+    <thead><tr><th>筛查项</th><th>说明</th><th>答案</th></tr></thead>
+    <tbody>
+      {% for name, val in record.answers.items() %}
+      <tr>
+        <td><code>{{ name }}</code></td>
+        <td>{{ version.labels.get(name, name) if version else name }}</td>
+        <td>{{ '是' if val else '否' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <h3 class="mt">逐题展示 / 跳过记录（对照该版规则）</h3>
+  <table>
+    <thead><tr><th>追问题号</th><th>展示条件</th><th>实测</th><th>该版规则预期</th><th>是否符合</th></tr></thead>
+    <tbody>
+      {% for f in (version.followups if version else []) %}
+      {% set shown = record.followups | selectattr(0, 'equalto', f.qid) | list %}
+      {% set actual = shown[0][1] if shown else None %}
+      {% set expected = version.expected_shown(f.qid, record.answers) if version else None %}
+      <tr>
+        <td><code>{{ f.qid }}</code></td>
+        <td><code>{{ f.condition_text }}</code></td>
+        <td>{% if actual %}<span class="tag answered">展示</span>{% else %}<span class="tag unknown">跳过</span>{% endif %}</td>
+        <td>{{ '展示' if expected else '跳过' }}</td>
+        <td>{% if actual == expected %}<span class="tag ok">符合</span>{% else %}<span class="tag bad">不符</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% endblock %}

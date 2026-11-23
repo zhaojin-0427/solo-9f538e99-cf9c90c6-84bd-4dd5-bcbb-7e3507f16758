@@ -1,0 +1,7 @@
+{"trial_id": "R1001", "terminal": "T-A", "version": "v2.3", "answers": {"S1": true, "S2": false, "S3": true, "S4": true}, "followups": [{"qid": "Q1", "shown": true}, {"qid": "Q2", "shown": true}]}
+{"trial_id": "R1002", "terminal": "T-B", "version": "v2.3", "answers": {"S1": true, "S2": false, "S3": true, "S4": true}, "followups": [{"qid": "Q1", "shown": false}, {"qid": "Q2", "shown": true}]}
+{"trial_id": "R1003", "terminal": "T-A", "version": "v2.3", "answers": {"S1": true, "S2": false, "S3": true, "S4": true}, "followups": [{"qid": "Q1", "shown": false}, {"qid": "Q2", "shown": true}]}
+{"trial_id": "R1004", "terminal": "T-C", "version": "v2.4", "answers": {"S1": true, "S2": false, "S3": true, "S4": true}, "followups": [{"qid": "Q1", "shown": true}, {"qid": "Q2", "shown": true}]}
+{"trial_id": "R1005", "terminal": "T-D", "version": "v2.4", "answers": {"S1": true, "S2": false, "S3": true, "S4": true}, "followups": [{"qid": "Q1", "shown": false}, {"qid": "Q2", "shown": true}]}
+{"trial_id": "R1006", "terminal": "T-A", "version": "v2.3", "answers": {"S1": true, "S2": true, "S3": false, "S4": false}, "followups": [{"qid": "Q1", "shown": false}, {"qid": "Q2", "shown": false}]}
+{"trial_id": "R1007", "terminal": "T-B", "version": "v2.3", "answers": {"S1": true, "S2": true, "S3": false, "S4": false}, "followups": [{"qid": "Q1", "shown": true}, {"qid": "Q2", "shown": false}]}

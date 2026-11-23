@@ -22,11 +22,32 @@ from .engine import (
     replace_followups,
     validate_archive,
 )
+from .store import TrialStore
+from .trial_routes import bp as trials_bp
 
 
 def create_app() -> Flask:
     app = Flask(__name__)
     app.secret_key = os.environ.get("SECRET_KEY", "dev-only-change-me-in-production")
+
+    db_path = os.environ.get("TRIAL_DB_PATH", os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "trials.db"
+    ))
+    os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
+    trial_store = TrialStore(db_path)
+    trial_store.init_schema()
+    app.extensions["trial_store"] = trial_store
+    app.register_blueprint(trials_bp)
+
+    @app.template_filter("fromjson")
+    def fromjson(value):
+        if isinstance(value, str):
+            return json.loads(value)
+        return value
+
+    @app.template_filter("yn")
+    def yn(value):
+        return "是" if value else "否"
 
     def get_state():
         cfg_json = session.get("config_json")

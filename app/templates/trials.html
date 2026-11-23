@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}试跑核查{% endblock %}
+{% block heading %}夜骑问卷试跑核查{% endblock %}
+{% block subheading %}同版同答案的试跑，展示/跳过不一致即报异常{% endblock %}
+{% block body %}
+
+<section class="card">
+  <h2>1. 上传带版号的问卷配置</h2>
+  <p class="hint">支持单版号对象、<code>{"versions": [...]}</code>、或版号映射
+    <code>{"v1": {...}, "v2": {...}}</code>。每个版号须给出 <code>items</code>
+    （完整筛查项）与 <code>followups</code>（追问题号 + 展示条件）。</p>
+  <form method="post" action="{{ url_for('trials.upload_versions') }}" enctype="multipart/form-data">
+    <textarea name="versions_text" rows="12" placeholder='{
+  "versions": [
+    {
+      "version": "v2.3",
+      "items": ["S1", "S2", "S3"],
+      "labels": {"S1": "夜间佩戴头盔", "S2": "配有车前灯", "S3": "单次夜骑超30分钟"},
+      "followups": [
+        {"qid": "Q1", "condition": "S1 AND NOT S2"},
+        {"qid": "Q2", "condition": "S3 OR S1"}
+      ]
+    }
+  ]
+}'></textarea>
+    <div class="row">
+      <input type="file" name="versions_file" accept=".json,application/json">
+      <button type="submit">载入版号配置</button>
+    </div>
+  </form>
+  {% if versions %}
+  <table class="mt">
+    <thead><tr><th>版号</th><th>最近更新（UTC）</th><th>配置摘要</th></tr></thead>
+    <tbody>
+      {% for v in versions %}<tr><td><code>{{ v.version }}</code></td><td>{{ v.updated_at }}</td><td class="mono">{{ v.config_hash[:12] }}…</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="hint">尚未载入任何版号配置。</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>2. 上传试跑 JSONL</h2>
+  <p class="hint">每行一条试跑记录：试跑号、终端号、版号、<strong>完整</strong>筛查答案，
+    以及逐题展示/跳过记录（所有追问题号都要显式列出）。同一试跑号重传相同内容不增计；
+    内容不同会被拒绝，请到下方按试跑号更正。</p>
+  <form method="post" action="{{ url_for('trials.upload_records') }}" enctype="multipart/form-data">
+    <textarea name="trials_text" rows="10" placeholder='{"trial_id":"R001","terminal":"T-A","version":"v2.3","answers":{"S1":true,"S2":false,"S3":true},"followups":[{"qid":"Q1","shown":true},{"qid":"Q2","shown":true}]}
+{"trial_id":"R002","terminal":"T-B","version":"v2.3","answers":{"S1":true,"S2":false,"S3":true},"followups":[{"qid":"Q1","shown":false},{"qid":"Q2","shown":true}]}'></textarea>
+    <div class="row">
+      <input type="file" name="trials_file" accept=".jsonl,.json,text/plain,application/x-ndjson">
+      <button type="submit">上传并核查</button>
+    </div>
+  </form>
+  <p class="hint">已入库试跑记录：<strong>{{ record_count }}</strong> 条。</p>
+</section>
+
+<section class="card">
+  <h2>3. 按试跑号查询 / 更正</h2>
+  <form method="post" action="{{ url_for('trials.lookup') }}" class="row">
+    <input type="text" name="trial_id" placeholder="试跑号，例如 R001" required>
+    <button type="submit">查看记录</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>4. 异常组（按版号、追问题号分页）</h2>
+  <form method="get" action="{{ url_for('trials.index') }}" class="row filter-row">
+    <label>版号
+      <select name="version">
+        <option value="">全部</option>
+        {% for v in versions %}
+        <option value="{{ v.version }}" {% if filters.version == v.version %}selected{% endif %}>{{ v.version }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>追问题号
+      <select name="qid">
+        <option value="">全部</option>
+        {% for q in qids %}
+        <option value="{{ q }}" {% if filters.qid == q %}selected{% endif %}>{{ q }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>每页
+      <select name="page_size">
+        {% for size in page_sizes %}
+        <option value="{{ size }}" {% if filters.page_size == size %}selected{% endif %}>{{ size }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">查询</button>
+  </form>
+
+  <p class="hint">
+    判定规则：同版号 + 同一组完整筛查答案内，只有来自<strong>不同终端</strong>且
+    <strong>一份展示、一份跳过</strong>才报异常；同终端多次试跑不一致不算。
+  </p>
+
+  {% if result.rows %}
+  <p class="hint">共 {{ result.total }} 个异常组，第 {{ result.page }} / {{ result.pages }} 页。</p>
+  {% for row in result.rows %}
+    {% set ev_shown = row.shown_evidence %}
+    {% set ev_skipped = row.skipped_evidence %}
+    <div class="anomaly">
+      <div class="anomaly-head">
+        <span class="tag bad">异常</span>
+        <strong>版号 <code>{{ row.version }}</code> · 追问题 <code>{{ row.qid }}</code></strong>
+        <span class="hint">该组 {{ row.shown_count }} 份展示 / {{ row.skipped_count }} 份跳过</span>
+      </div>
+      <p class="hint">同答案组：
+        {% for name, val in row.answers.items() %}
+          <code>{{ name }}={{ '是' if val else '否' }}</code>{% if not loop.last %} {% endif %}
+        {% endfor %}
+        · 按该版规则本应<strong>{{ row.expected_text }}</strong>
+        （条件 <code>{{ row.condition_text }}</code>）
+      </p>
+      {% if row.mismatch_evidence %}
+      <p class="verdict-line">
+        与预期不符的一份：
+        <a href="{{ url_for('trials.record_detail', trial_id=row.mismatch_evidence.trial_id) }}"><code>{{ row.mismatch_evidence.trial_id }}</code></a>
+        （终端 <code>{{ row.mismatch_evidence.terminal }}</code>，实测{{ row.mismatch_actual_text }}，规则要求{{ row.expected_text }}）
+      </p>
+      {% endif %}
+      <table class="evidence">
+        <thead><tr><th>证据</th><th>试跑号</th><th>终端号</th><th>实测</th><th>与预期</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>展示侧</td>
+            <td><a href="{{ url_for('trials.record_detail', trial_id=ev_shown.trial_id) }}"><code>{{ ev_shown.trial_id }}</code></a></td>
+            <td><code>{{ ev_shown.terminal }}</code></td>
+            <td><span class="tag answered">展示</span></td>
+            <td>{% if expected_mismatch(row.expected_shown, 'shown') %}<span class="tag bad">不符预期</span>{% else %}<span class="tag ok">符合</span>{% endif %}</td>
+          </tr>
+          <tr>
+            <td>跳过侧</td>
+            <td><a href="{{ url_for('trials.record_detail', trial_id=ev_skipped.trial_id) }}"><code>{{ ev_skipped.trial_id }}</code></a></td>
+            <td><code>{{ ev_skipped.terminal }}</code></td>
+            <td><span class="tag unknown">跳过</span></td>
+            <td>{% if expected_mismatch(row.expected_shown, 'skipped') %}<span class="tag bad">不符预期</span>{% else %}<span class="tag ok">符合</span>{% endif %}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  {% endfor %}
+
+  <div class="pager">
+    {% set base_args = {'version': filters.version, 'qid': filters.qid, 'page_size': filters.page_size} %}
+    {% if result.page > 1 %}
+      <a class="btn-link" href="{{ url_for('trials.index', page=result.page - 1, **base_args) }}">上一页</a>
+    {% endif %}
+    <span>第 {{ result.page }} / {{ result.pages }} 页</span>
+    {% if result.page < result.pages %}
+      <a class="btn-link" href="{{ url_for('trials.index', page=result.page + 1, **base_args) }}">下一页</a>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="ok-line">当前筛选条件下没有异常组。</p>
+  {% endif %}
+</section>
+
+{% endblock %}

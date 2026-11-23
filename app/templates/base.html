@@ -3,13 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}旧答卷夜骑纳入核查{% endblock %}</title>
+  <title>{% block title %}夜骑核查{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <header>
-  <h1>旧答卷夜骑纳入核查</h1>
-  <p class="sub">交通调查 · 旧版答卷可补全性与新版纳入判定</p>
+  <h1>{% block heading %}旧答卷夜骑纳入核查{% endblock %}</h1>
+  <p class="sub">{% block subheading %}交通调查 · 旧版答卷可补全性与新版纳入判定{% endblock %}</p>
+  <nav class="topnav">
+    <a href="{{ url_for('index') }}">旧档纳入核查</a>
+    <a href="{{ url_for('trials.index') }}">试跑核查</a>
+  </nav>
 </header>
 <main>
   {% with messages = get_flashed_messages(with_categories=true) %}

@@ -1,0 +1,32 @@
+{
+  "versions": [
+    {
+      "version": "v2.3",
+      "items": ["S1", "S2", "S3", "S4"],
+      "labels": {
+        "S1": "夜间骑行时佩戴头盔",
+        "S2": "车辆配有车前灯",
+        "S3": "单次夜骑超过30分钟",
+        "S4": "近一月有过夜骑记录"
+      },
+      "followups": [
+        {"qid": "Q1", "condition": "S1 AND NOT S2"},
+        {"qid": "Q2", "condition": "S3 OR S4"}
+      ]
+    },
+    {
+      "version": "v2.4",
+      "items": ["S1", "S2", "S3", "S4"],
+      "labels": {
+        "S1": "夜间骑行时佩戴头盔",
+        "S2": "车辆配有车前灯",
+        "S3": "单次夜骑超过30分钟",
+        "S4": "近一月有过夜骑记录"
+      },
+      "followups": [
+        {"qid": "Q1", "condition": "S1 AND NOT S2"},
+        {"qid": "Q2", "condition": "S3 OR S4"}
+      ]
+    }
+  ]
+}

@@ -20,6 +20,16 @@ from .config import (
     validate_archive,
 )
 from .solver import AnalysisResult, analyze, build_constraints, decision_depth
+from .trial import (
+    TrialError,
+    TrialFollowup,
+    TrialRecord,
+    TrialVersion,
+    normalize_trial_record,
+    parse_version_configs,
+    record_version,
+    trial_record_to_json,
+)
 
 __all__ = [
     "ConditionError",
@@ -41,4 +51,12 @@ __all__ = [
     "analyze",
     "build_constraints",
     "decision_depth",
+    "TrialError",
+    "TrialFollowup",
+    "TrialRecord",
+    "TrialVersion",
+    "normalize_trial_record",
+    "parse_version_configs",
+    "record_version",
+    "trial_record_to_json",
 ]
